@@ -25,7 +25,7 @@ export default function NavBar() {
           {open ? "- Expense" : "-"}
         </button>
       </div>
-
+      
       <button className="text-black p-2 rounded-md hover:bg-gray-200 transition flex items-center gap-2">
         <LogOut size={24} />
         {open && <span>Logout</span>}

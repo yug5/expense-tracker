@@ -1,11 +1,27 @@
 "use client";
 import { Minus, Plus, X } from "lucide-react";
 import React, { useState } from "react";
+import { db } from "@/lib/firebaseConfig";
+import { collection, addDoc } from "firebase/firestore";
+import { useAuth } from "@/context/AuthContext";
+import InEx from "./in-ex";
+import { useBalance } from "@/context/balance";
 
 export default function DashBoard() {
+  const { user } = useAuth();
   const [isOpen, setOpen] = useState(false);
   const [isExpenseOpen, setExpenseOpen] = useState(false);
-
+  const [amount, setAmount] = useState("");
+  const [description, setDescription] = useState("");
+  const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
+  const [selectedCategory, setSelectedCategory] = useState<{
+    name: string;
+    emoji: string;
+  } | null>(null);
+  const [transactionType, setTransactionType] = useState<"income" | "expense">(
+    "income"
+  );
+  const { refreshBalance } = useBalance();
   const income = [
     { name: "Salary", emoji: "💼" },
     { name: "Pocket Money", emoji: "🤑" },
@@ -57,103 +73,134 @@ export default function DashBoard() {
     { name: "Others", emoji: "🔹" },
   ];
 
+  const handleSaveTransaction = async () => {
+    if (!user || !amount || !selectedCategory) return;
+
+    const transactionData = {
+      userId: user.uid,
+      type: transactionType,
+      name: selectedCategory.name,
+      emoji: selectedCategory.emoji,
+      amount: parseFloat(amount),
+      description,
+      date: new Date(date).toISOString(),
+      month: new Date(date).toLocaleString("default", { month: "short" }),
+    };
+
+    try {
+      await addDoc(collection(db, "transactions"), transactionData);
+      console.log("Transaction added successfully!");
+      refreshBalance();
+      setAmount("");
+      setDescription("");
+      setDate(new Date().toISOString().split("T")[0]);
+      setSelectedCategory(null);
+      setOpen(false);
+      setExpenseOpen(false);
+    } catch (error) {
+      console.error("Error saving transaction:", error);
+    }
+  };
+
   return (
-    <div className="lg:w-3/4 sm:w-full mt-5 mx-auto">
-      <div className="flex flex-row gap-6 justify-center">
-        
-        <button
-          className="bg-black flex gap-2 justify-center items-center p-3 text-white rounded-lg w-[10rem] hover:bg-gray-800 shadow-lg"
-          onClick={() => setOpen(true)}
-        >
-          <Plus size={18} /> Add Income
-        </button>
-
-        <button
-          className="bg-black flex justify-center items-center gap-2 p-3 text-white rounded-lg w-[10rem] hover:bg-gray-800 shadow-lg"
-          onClick={() => setExpenseOpen(true)}
-        >
-          <Minus size={18} /> Add Expense
-        </button>
-      </div>
-
-      
-      {isOpen && (
+    <div className="lg:w-3/4 sm:w-full mx-auto">
+      {(isOpen || isExpenseOpen) && (
         <div className="fixed inset-0 flex items-center justify-center bg-black/50 backdrop-blur-md">
           <div className="bg-white text-black p-6 rounded-lg shadow-lg w-[600px] max-w-full">
             <div className="flex justify-between">
-              <h2 className="text-xl font-semibold">Select Income Type</h2>
-              <button onClick={() => setOpen(false)} className="text-gray-600 hover:text-black">
+              <h2 className="text-xl font-semibold">
+                {transactionType === "income"
+                  ? "Select Income Type"
+                  : "Select Spending Type"}
+              </h2>
+              <button
+                onClick={() => {
+                  setOpen(false);
+                  setExpenseOpen(false);
+                }}
+                className="text-gray-600 hover:text-black"
+              >
                 <X size={20} />
               </button>
             </div>
+
             <input
-                type="number"
-                placeholder="Amount"
-                className="w-full p-2 mt-4 border rounded bg-gray-100 text-black"
-              />
+              type="number"
+              placeholder="Amount"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              className="w-full p-2 mt-4 border rounded bg-gray-100 text-black"
+            />
+
+            <input
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className="w-full p-2 mt-2 border rounded bg-gray-100 text-black"
+            />
+
             <div className="grid grid-cols-4 gap-2 mt-4 max-h-80 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-200">
-            {income.map((item, index) => (
-                <div key={index} className="p-2 bg-gray-200 rounded-md shadow">
-                  {item.emoji} {item.name}
-                </div>
-              ))}
+              {(transactionType === "income" ? income : spending).map(
+                (item, index) => (
+                  <div
+                    key={index}
+                    onClick={() => setSelectedCategory(item)}
+                    className={`p-2 rounded-md shadow cursor-pointer hover:bg-gray-300 ${
+                      selectedCategory?.name === item.name
+                        ? "bg-gray-800 text-white"
+                        : "bg-gray-200"
+                    }`}
+                  >
+                    {item.emoji} {item.name}
+                  </div>
+                )
+              )}
             </div>
+
             <input
-        type="text"
-        placeholder="Description (max 50 chars)"
-        maxLength={50}
-        className="w-full p-2 mt-2 border rounded bg-gray-100 text-black"
-      />
+              type="text"
+              placeholder="Description (max 50 chars)"
+              maxLength={50}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              className="w-full p-2 mt-2 border rounded bg-gray-100 text-black"
+            />
+
             <button
               className="mt-4 w-full bg-black text-white px-3 py-2 rounded hover:bg-gray-900"
-              onClick={() => setOpen(false)}
+              onClick={handleSaveTransaction}
             >
               Submit
             </button>
           </div>
         </div>
       )}
-{isExpenseOpen && (
-  <div className="fixed inset-0 flex items-center justify-center bg-black/50 backdrop-blur-md">
-    <div className="bg-white text-black p-6 rounded-lg shadow-lg w-[600px] h-[600px] max-w-full">
-      <div className="flex justify-between">
-        <h2 className="text-xl font-semibold">Select Spending Type</h2>
-        <button onClick={() => setExpenseOpen(false)} className="text-gray-600 hover:text-black">
-          <X size={20} />
-        </button>
+      <div className="flex flex-col">
+        <InEx />
+        <div className="flex flex-row gap-20  justify-center">
+          <button
+            className="bg-black flex gap-2 justify-center items-center p-3 text-white rounded-lg w-[10rem] hover:bg-gray-800 shadow-lg"
+            onClick={() => {
+              setTransactionType("income");
+              setOpen(true);
+              setExpenseOpen(false);
+            }}
+          >
+            <Plus size={18} /> Add Income
+          </button>
+
+          <button
+            className="bg-black flex justify-center items-center gap-2 p-3 text-white rounded-lg w-[10rem] hover:bg-gray-800 shadow-lg"
+            onClick={() => {
+              setTransactionType("expense");
+              setExpenseOpen(true);
+              setOpen(false);
+            }}
+          >
+            <Minus size={18} /> Add Expense
+          </button>
+        </div>
       </div>
-
-      <input
-        type="number"
-        placeholder="Amount"
-        className="w-full p-2 mt-4 border rounded bg-gray-100 text-black"
-      />
-      <div className="grid grid-cols-4 gap-2 mt-4 max-h-80 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-200">
-        {spending.map((item, index) => (
-          <div key={index} className="p-2 bg-gray-200 rounded-md shadow">
-            {item.emoji} {item.name}
-          </div>
-        ))}
-      </div>
-
-      <input
-        type="text"
-        placeholder="Description (max 50 chars)"
-        maxLength={50}
-        className="w-full p-2 mt-2 border rounded bg-gray-100 text-black"
-      />
-
-      <button
-        className="mt-4 w-full bg-black text-white px-3 py-2 rounded hover:bg-gray-900"
-        onClick={() => setExpenseOpen(false)}
-      >
-        Submit
-      </button>
-    </div>
-  </div>
-)}
-  
-
     </div>
   );
 }
