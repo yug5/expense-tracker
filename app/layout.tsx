@@ -16,6 +16,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Expense Tracker",
   description: "Create by Yug",
+  icons: "accounting.png",
 };
 
 export default function RootLayout({
