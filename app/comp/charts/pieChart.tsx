@@ -1,7 +1,14 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import { db } from "@/lib/firebaseConfig";
-import { collection, query, orderBy, onSnapshot } from "firebase/firestore";
+import { db, auth } from "@/lib/firebaseConfig";
+import {
+  collection,
+  query,
+  orderBy,
+  where,
+  onSnapshot,
+} from "firebase/firestore";
+import { onAuthStateChanged } from "firebase/auth";
 
 export default function TopTransactions() {
   const [topExpenses, setTopExpenses] = useState<
@@ -10,10 +17,26 @@ export default function TopTransactions() {
   const [topIncome, setTopIncome] = useState<
     { name: string; amount: number }[]
   >([]);
+  const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
+    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        setUserId(user.uid);
+      } else {
+        setUserId(null);
+      }
+    });
+
+    return () => unsubscribeAuth();
+  }, []);
+
+  useEffect(() => {
+    if (!userId) return;
+
     const transactionsQuery = query(
       collection(db, "transactions"),
+      where("userId", "==", userId), // ✅ Fetch only the logged-in user's data
       orderBy("amount", "desc")
     );
 
@@ -35,7 +58,7 @@ export default function TopTransactions() {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [userId]);
 
   return (
     <div className="w-full max-w-4xl bg-white shadow-lg rounded-lg p-5 mt-6">
