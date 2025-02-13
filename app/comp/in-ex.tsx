@@ -13,7 +13,7 @@ import {
   updateDoc,
 } from "firebase/firestore";
 import { useAuth } from "@/context/AuthContext";
-import { useBalance } from "@/context/balance";
+
 const monthNames = [
   "Jan",
   "Feb",
@@ -30,7 +30,6 @@ const monthNames = [
 ];
 
 export default function Inex() {
-  const { refreshBalance } = useBalance();
   const { user } = useAuth();
   const [currentMonthIndex, setCurrentMonthIndex] = useState(
     new Date().getMonth()
@@ -39,7 +38,7 @@ export default function Inex() {
     id: string;
     userId: string;
     name: string;
-    emoji?: string; // Ensure emoji exists and is optional
+    emoji: string;
     amount: number;
     type: "income" | "expense";
     date: string;
@@ -55,28 +54,36 @@ export default function Inex() {
   const [isEditing, setIsEditing] = useState(false);
   const [editedAmount, setEditedAmount] = useState("");
   const [editedDescription, setEditedDescription] = useState("");
-
   useEffect(() => {
     if (!user) return;
+
     const q = query(
       collection(db, "transactions"),
       where("userId", "==", user.uid),
       where("month", "==", monthNames[currentMonthIndex])
     );
+
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const data = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-      const groupedData = data.reduce((acc, tx) => {
+      const data = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as Transaction[];
+
+      const groupedData: Record<string, Transaction[]> = {};
+
+      data.forEach((tx) => {
         const date = tx.date.split("T")[0];
-        if (!acc[date]) acc[date] = [];
-        acc[date].push(tx);
-        return acc;
-      }, {});
+        if (!groupedData[date]) groupedData[date] = [];
+        groupedData[date].push(tx);
+      });
+
       setTransactions(groupedData);
     });
+
     return () => unsubscribe();
   }, [user, currentMonthIndex]);
 
-  const handleMonthChange = (direction) => {
+  const handleMonthChange = (direction: string) => {
     setCurrentMonthIndex((prev) =>
       direction === "prev"
         ? prev === 0
@@ -88,15 +95,15 @@ export default function Inex() {
     );
   };
 
-  const handleDelete = async (id) => {
+  const handleDelete = async (id: string) => {
     await deleteDoc(doc(db, "transactions", id));
     setSelectedTransaction(null);
   };
 
   const handleEdit = () => {
     setIsEditing(true);
-    setEditedAmount(selectedTransaction.amount);
-    setEditedDescription(selectedTransaction.description || "");
+    setEditedAmount(selectedTransaction?.amount.toString() || "");
+    setEditedDescription(selectedTransaction?.description || "");
   };
 
   const handleSaveEdit = async () => {
@@ -156,7 +163,6 @@ export default function Inex() {
           </div>
         ))}
       </div>
-
       {selectedTransaction && !isEditing && (
         <div className="fixed inset-0 flex items-center justify-center bg-black/50 backdrop-blur-md">
           <div className="bg-white text-black p-6 rounded-lg shadow-lg w-[400px] max-w-full">

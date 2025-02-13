@@ -10,7 +10,7 @@ import {
 } from "firebase/auth";
 import { auth, googleAuthProvider } from "@/lib/firebaseConfig";
 import { Mail, Key, User } from "lucide-react";
-
+import { FirebaseError } from "firebase/app";
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -24,6 +24,7 @@ export default function LoginPage() {
       router.push("/");
     } catch (error) {
       setError("Google Sign-In Failed.");
+      console.log(error);
     }
   };
 
@@ -48,12 +49,14 @@ export default function LoginPage() {
       }
       router.push("/");
     } catch (error) {
-      if (error.code === "auth/user-not-found") {
-        setError("No account found. Please sign up.");
-      } else if (error.code === "auth/wrong-password") {
-        setError("Incorrect password.");
-      } else {
-        setError("Authentication failed. Try again.");
+      if (error instanceof FirebaseError) {
+        if (error.code === "auth/user-not-found") {
+          setError("No account found. Please sign up.");
+        } else if (error.code === "auth/wrong-password") {
+          setError("Incorrect password.");
+        } else {
+          setError("Authentication failed. Try again.");
+        }
       }
     }
   };

@@ -45,32 +45,31 @@ export default function Homepage() {
   }, [user]);
 
   useEffect(() => {
+    const fetchBalance = async () => {
+      if (!user) return;
+
+      const now = new Date();
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
+      const transactionsRef = collection(db, "transactions");
+      const q = query(
+        transactionsRef,
+        where("userId", "==", user.uid),
+        where("date", ">=", Timestamp.fromDate(startOfMonth)),
+        where("date", "<=", Timestamp.fromDate(endOfMonth))
+      );
+
+      const querySnapshot = await getDocs(q);
+
+      querySnapshot.forEach((doc) => {
+        console.log(doc.data());
+      });
+    };
     if (user) {
       fetchBalance();
     }
   }, [user]);
-
-  const fetchBalance = async () => {
-    if (!user) return;
-
-    const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-
-    const transactionsRef = collection(db, "transactions");
-    const q = query(
-      transactionsRef,
-      where("userId", "==", user.uid),
-      where("date", ">=", Timestamp.fromDate(startOfMonth)),
-      where("date", "<=", Timestamp.fromDate(endOfMonth))
-    );
-
-    const querySnapshot = await getDocs(q);
-
-    querySnapshot.forEach((doc) => {
-      console.log(doc.data());
-    });
-  };
 
   const handleNameChange = async () => {
     if (user) {
